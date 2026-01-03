@@ -59,10 +59,14 @@ class FlightStreamSubject(pw.io.python.ConnectorSubject):
 
             time.sleep(5)
 
+# input connector
 flights = pw.io.python.read(
     FlightStreamSubject(),
     schema=OpenSkySchema,
 )
 
-pw.debug.compute_and_print(flights)
+# output connector
+pw.io.csv.write(flights, "output.csv")
+print(flights)
+
 pw.run()
