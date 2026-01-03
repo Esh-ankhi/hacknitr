@@ -14,7 +14,7 @@ class OpenSkySchema(pw.Schema):
     latitude: float | None
     baro_altitude: float | None
     on_ground: bool
-    velocity: float | None
+    velocity: float
     true_track: float | None
     vertical_rate: float | None
     geo_altitude: float | None
@@ -74,13 +74,13 @@ timed_flights_table = flights_table.with_columns(
 
 result = timed_flights_table.windowby(
     timed_flights_table.time,
-    window=pw.temporal.session(max_gap=timedelta(minutes=2)),
+    window=pw.temporal.session(max_gap=timedelta(minutes=1)),
     instance=timed_flights_table.callsign,
 ).reduce(
     pw.this.callsign,
     session_start=pw.this._pw_window_start,
     session_end=pw.this._pw_window_end,
-    velocity=69,
+    velocities=pw.reducers.ndarray(pw.this.velocity),
 )
 
 def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool):

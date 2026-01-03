@@ -1,0 +1,20 @@
+# def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool):
+#     with open("output.txt", "a", encoding="utf-8") as f:
+#         f.write(f"Time: {time}, Addition: {is_addition}, Data: {row}\n")
+
+# pw.io.subscribe(flights_table, on_change)
+
+# Pinecone
+# pc = Pinecone(api_key="pcsk_51k6TP_RVkPcs4D5K8i8Gwj5BL6ZovfQSckBmcfNjLkZbE51D514vHEJn9hJR18gnuTRWb")
+
+# index_name = "hacknitr-py"
+# if not pc.has_index(index_name):
+#     pc.create_index_for_model(
+#         name=index_name,
+#         cloud="aws",
+#         region="us-east-1",
+#         embed={
+#             "model":"llama-text-embed-v2",
+#             "field_map":{"text": "chunk_text"}
+#         }
+#     )
