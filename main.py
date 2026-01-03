@@ -107,11 +107,70 @@ result = india_flights.windowby(
     origin_countries=pw.reducers.any(pw.this.origin_country)
 )
 
-def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool):
-    with open("output.txt", "a", encoding="utf-8") as f:
-        f.write(f"Time: {time}, Addition: {is_addition}, Data: {row}\n")
+sentences = result.with_columns(
+    sentence=pw.apply(
+        lambda callsign, start, end, vels, alt, lat, lon, country:
+        (
+            f"Flight {callsign} from {country} was tracked from {start} to {end}. "
+            f"It reached a maximum altitude of {round(alt, 2)} meters, "
+            f"with speeds ranging between {round(min(vels), 2)} and {round(max(vels), 2)} m/s. "
+            f"The last known position was latitude {round(lat, 4)}, longitude {round(lon, 4)}."
+        ),
+        pw.this.callsign,
+        pw.this.session_start,
+        pw.this.session_end,
+        pw.this.velocities,
+        pw.this.altitudes,
+        pw.this.latitudes,
+        pw.this.longitudes,
+        pw.this.origin_countries,
+    )
+)
 
-pw.io.subscribe(result, on_change)
+# Pinecone Integration
+pc = Pinecone(api_key="pcsk_51k6TP_RVkPcs4D5K8i8Gwj5BL6ZovfQSckBmcfNjLkZbE51D514vHEJn9hJR18gnuTRWb")
+index = pc.Index("hacknitr-py")
+
+def normalize_vector(vec, dim=1024):
+    vec = vec.tolist()
+    if len(vec) > dim:
+        return vec[:dim]
+    return vec + [0.0] * (dim - len(vec))
+
+def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool):
+    flight_id = str(row["callsign"])
+    if flight_id is None:
+        return
+
+    if is_addition:
+        vector = normalize_vector(row["velocities"])
+
+        metadata = {
+            "sentence": row["sentence"],
+            "callsign": row["callsign"],
+            "origin_country": row["origin_countries"],
+            "max_altitude": float(row["altitudes"]) if row["altitudes"] else None,
+            "latitude": float(row["latitudes"]) if row["latitudes"] else None,
+            "longitude": float(row["longitudes"]) if row["longitudes"] else None,
+            "session_start": str(row["session_start"]),
+            "session_end": str(row["session_end"]),
+        }
+
+        index.upsert(
+            vectors=[
+                (
+                    flight_id,
+                    vector,
+                    metadata
+                )
+            ]
+        )
+
+    else:
+        index.delete(ids=[flight_id])
+
+
+pw.io.subscribe(sentences, on_change)
 
 # pw.debug.compute_and_print(result)
 pw.run()
