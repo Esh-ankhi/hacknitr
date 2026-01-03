@@ -138,10 +138,13 @@ def normalize_vector(vec, dim=1024):
     return vec + [0.0] * (dim - len(vec))
 
 def on_change(key: pw.Pointer, row: dict, time: int, is_addition: bool):
-    flight_id = str(row["callsign"])
-    if flight_id is None:
-        return
+    callsign = row.get("callsign")
 
+    if not callsign:
+        return 
+
+    flight_id = str(callsign)
+    
     if is_addition:
         vector = normalize_vector(row["velocities"])
 
