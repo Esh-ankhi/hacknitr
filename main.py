@@ -4,14 +4,19 @@ import pathway as pw
 from datetime import timedelta
 from pinecone import Pinecone
 
+INDIA_LAT_MIN = 2.5
+INDIA_LAT_MAX = 38.5
+INDIA_LON_MIN = 63.5
+INDIA_LON_MAX = 99.5
+
 class OpenSkySchema(pw.Schema):
     icao24: str | None
     callsign: str | None
     origin_country: str | None
     time_position: int | None
     last_contact: int
-    longitude: float | None
-    latitude: float | None
+    longitude: float
+    latitude: float
     baro_altitude: float | None
     on_ground: bool | None
     velocity: float
@@ -64,7 +69,7 @@ class FlightStreamSubject(pw.io.python.ConnectorSubject):
             except Exception as e:
                 print(e)
 
-            time.sleep(15)
+            time.sleep(30)
 
 flights_table = pw.io.python.read(
     FlightStreamSubject(),
@@ -75,17 +80,22 @@ timed_flights_table = flights_table.with_columns(
     time=pw.this.last_contact.dt.from_timestamp("s")
 )
 
-filtered_flights_table = timed_flights_table.filter(
-    (pw.this.latitude.is_not_none()) &
-    (pw.this.longitude.is_not_none()) &
-    (pw.this.geo_altitude.is_not_none()) &
-    (pw.this.velocity.is_not_none())
+india_flights = timed_flights_table.filter(
+    pw.this.latitude.is_not_none() &
+    pw.this.longitude.is_not_none() &
+    pw.this.geo_altitude.is_not_none() &
+    pw.this.velocity.is_not_none() &
+
+    (pw.this.latitude >= INDIA_LAT_MIN) &
+    (pw.this.latitude <= INDIA_LAT_MAX) &
+    (pw.this.longitude >= INDIA_LON_MIN) &
+    (pw.this.longitude <= INDIA_LON_MAX)
 )
 
-result = filtered_flights_table.windowby(
-    filtered_flights_table.time,
+result = india_flights.windowby(
+    india_flights.time,
     window=pw.temporal.session(max_gap=timedelta(minutes=1)),
-    instance=filtered_flights_table.callsign,
+    instance=india_flights.callsign,
 ).reduce(
     pw.this.callsign,
     session_start=pw.this._pw_window_start,
